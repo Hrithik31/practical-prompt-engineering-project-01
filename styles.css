@@ -290,6 +290,13 @@ textarea:focus {
   gap: 12px;
 }
 
+.card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .card-title {
   overflow-wrap: anywhere;
   margin-bottom: 10px;
@@ -311,7 +318,7 @@ textarea:focus {
 .card-preview {
   display: -webkit-box;
   overflow: hidden;
-  margin-bottom: 17px;
+  margin-bottom: 12px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
@@ -320,19 +327,116 @@ textarea:focus {
   -webkit-line-clamp: 2;
 }
 
-.delete-button {
-  align-self: flex-start;
-  margin-top: auto;
+.rating-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.rating-control legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.rating-stars {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.rating-option {
+  position: relative;
+  display: inline-flex;
+  width: 25px;
+  flex: 0 0 25px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+.rating-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.rating-star {
+  color: #536073;
+  font-size: 19px;
+  line-height: 1;
+  transition: color 120ms ease, transform 120ms ease;
+}
+
+.rating-star.is-filled {
+  color: #f3c969;
+}
+
+.rating-option:hover .rating-star {
+  transform: scale(1.15);
+}
+
+.rating-option input:focus-visible + .rating-star {
+  border-radius: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.rating-message {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.clear-rating-button {
   padding: 3px 0;
   border: 0;
   background: transparent;
   color: #9ba6b7;
   cursor: pointer;
-  font-size: 11px;
-  transition: color 150ms ease;
+  font-size: 10px;
+}
+
+.clear-rating-button:hover {
+  color: #e8edf5;
+}
+
+.clear-rating-button:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.delete-button {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #9ba6b7;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 .delete-button:hover {
+  background: rgb(255 146 146 / 10%);
   color: #ff9292;
 }
 
@@ -387,5 +491,37 @@ textarea:focus {
 
   .button-primary {
     flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    display: grid;
+    width: min(100% - 64px, 1440px);
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 40px;
+  }
+
+  .composer-sidebar {
+    position: sticky;
+    top: 24px;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .page-header {
+    margin-bottom: 28px;
+  }
+
+  .library {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  .page-footer {
+    grid-column: 1 / -1;
   }
 }

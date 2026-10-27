@@ -10,49 +10,51 @@
   </head>
   <body>
     <main class="app-shell">
-      <header class="page-header">
-        <p class="eyebrow"><span class="status-dot"></span> PERSONAL WORKSPACE</p>
-        <h1>Prompt<span>Library</span></h1>
-        <p class="page-description">Keep your best ideas ready for the next build.</p>
-      </header>
+      <div class="composer-sidebar">
+        <header class="page-header">
+          <p class="eyebrow"><span class="status-dot"></span> PERSONAL WORKSPACE</p>
+          <h1>Prompt<span>Library</span></h1>
+          <p class="page-description">Keep your best ideas ready for the next build.</p>
+        </header>
 
-      <section class="composer panel" aria-labelledby="composer-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-label">NEW ENTRY</p>
-            <h2 id="composer-title">Create a prompt</h2>
+        <section class="composer panel" aria-labelledby="composer-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">NEW ENTRY</p>
+              <h2 id="composer-title">Create a prompt</h2>
+            </div>
+            <span class="code-mark" aria-hidden="true">&lt;/&gt;</span>
           </div>
-          <span class="code-mark" aria-hidden="true">&lt;/&gt;</span>
-        </div>
 
-        <form id="prompt-form">
-          <label for="prompt-title">Prompt title</label>
-          <input
-            id="prompt-title"
-            name="title"
-            type="text"
-            placeholder="e.g. Explain a codebase"
-            maxlength="100"
-            required
-          >
+          <form id="prompt-form">
+            <label for="prompt-title">Prompt title</label>
+            <input
+              id="prompt-title"
+              name="title"
+              type="text"
+              placeholder="e.g. Explain a codebase"
+              maxlength="100"
+              required
+            >
 
-          <label for="prompt-content">Prompt content</label>
-          <textarea
-            id="prompt-content"
-            name="content"
-            rows="5"
-            placeholder="Write or paste your prompt..."
-            required
-          ></textarea>
+            <label for="prompt-content">Prompt content</label>
+            <textarea
+              id="prompt-content"
+              name="content"
+              rows="5"
+              placeholder="Write or paste your prompt..."
+              required
+            ></textarea>
 
-          <div class="form-footer">
-            <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
-            <button class="button button-primary" type="submit">
-              <span aria-hidden="true">+</span> Save prompt
-            </button>
-          </div>
-        </form>
-      </section>
+            <div class="form-footer">
+              <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
+              <button class="button button-primary" type="submit">
+                <span aria-hidden="true">+</span> Save prompt
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
 
       <section class="library" aria-labelledby="library-title">
         <div class="library-heading">
@@ -63,6 +65,36 @@
         </div>
         <div id="prompt-list" class="prompt-grid" aria-live="polite"></div>
       </section>
+
+      <template id="rating-template">
+        <fieldset class="rating-control">
+          <legend>Rate effectiveness</legend>
+          <div class="rating-stars">
+            <label class="rating-option">
+              <input type="radio" value="1">
+              <span class="rating-star" aria-hidden="true">★</span>
+            </label>
+            <label class="rating-option">
+              <input type="radio" value="2">
+              <span class="rating-star" aria-hidden="true">★</span>
+            </label>
+            <label class="rating-option">
+              <input type="radio" value="3">
+              <span class="rating-star" aria-hidden="true">★</span>
+            </label>
+            <label class="rating-option">
+              <input type="radio" value="4">
+              <span class="rating-star" aria-hidden="true">★</span>
+            </label>
+            <label class="rating-option">
+              <input type="radio" value="5">
+              <span class="rating-star" aria-hidden="true">★</span>
+            </label>
+          </div>
+          <span class="rating-message" aria-live="polite"></span>
+          <button class="clear-rating-button" type="button">Clear</button>
+        </fieldset>
+      </template>
 
       <footer class="page-footer"><span class="footer-line"></span> BUILT FOR THE NEXT BIG IDEA</footer>
     </main>
