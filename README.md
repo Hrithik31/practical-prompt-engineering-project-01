@@ -20,6 +20,13 @@ The browser script exposes these plain JavaScript functions:
 Metadata is shown on each prompt card, and cards are ordered by creation time,
 newest first.
 
+## Theme
+
+Use the Sun/Moon button in the header to switch between light and dark themes.
+The selection is saved separately under the `promptLibraryTheme` localStorage
+key, leaving saved prompt data unchanged. The application defaults to light
+mode when no valid theme preference is stored.
+
 ## Import and export
 
 Use **Export JSON** to download every saved prompt, including its note, rating,

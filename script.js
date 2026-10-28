@@ -2,6 +2,7 @@ const STORAGE_KEY = "prompt-library-prompts";
 const IMPORT_BACKUP_KEY = "prompt-library-import-backup";
 const EXPORT_FORMAT = "prompt-library-export";
 const EXPORT_VERSION = 1;
+const THEME_STORAGE_KEY = "promptLibraryTheme";
 const form = document.querySelector("#prompt-form");
 const titleInput = document.querySelector("#prompt-title");
 const modelInput = document.querySelector("#model-name");
@@ -23,11 +24,36 @@ const importConflicts = document.querySelector("#import-conflicts");
 const conflictList = document.querySelector("#conflict-list");
 const replaceWarning = document.querySelector("#replace-warning");
 const applyImportButton = document.querySelector("#apply-import");
+const themeToggle = document.querySelector("#theme-toggle");
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 const noteStatusTimers = new WeakMap();
 
 let prompts = [];
 let migratedPromptMetadata = false;
 let pendingImportPrompts = null;
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.documentElement.dataset.theme = isDark ? "dark" : "light";
+  themeToggle.setAttribute("aria-label", `Switch to ${isDark ? "light" : "dark"} mode`);
+  themeToggle.setAttribute("aria-pressed", String(isDark));
+  themeToggle.title = `Switch to ${isDark ? "light" : "dark"} mode`;
+  themeColorMeta.content = isDark ? "#10151f" : "#f4f6f8";
+}
+
+applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+themeToggle.addEventListener("click", () => {
+  const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    if (formMessage.textContent === "Theme changed, but the preference could not be saved in browser storage.") {
+      setMessage("");
+    }
+  } catch {
+    setMessage("Theme changed, but the preference could not be saved in browser storage.");
+  }
+});
 
 function isIsoTimestamp(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
