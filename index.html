@@ -37,6 +37,16 @@
               required
             >
 
+            <label for="model-name">Model name</label>
+            <input
+              id="model-name"
+              name="modelName"
+              type="text"
+              placeholder="e.g. GPT-4o"
+              maxlength="100"
+              required
+            >
+
             <label for="prompt-content">Prompt content</label>
             <textarea
               id="prompt-content"
@@ -112,5 +122,47 @@
 
       <footer class="page-footer"><span class="footer-line"></span> BUILT FOR THE NEXT BIG IDEA</footer>
     </main>
+
+    <template id="prompt-card-template">
+      <article class="prompt-card">
+        <div class="card-topline">
+          <h3 class="card-title"></h3>
+          <div class="card-actions">
+            <span class="card-tag">PROMPT</span>
+            <button class="delete-button" type="button">
+              <svg
+                viewBox="0 0 24 24"
+                width="17"
+                height="17"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M3 6h18M8 6V4h8v2m-7 4v7m6-7v7M5 6l1 14h12l1-14"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p class="card-preview"></p>
+        <section class="prompt-metadata" aria-label="Prompt metadata">
+          <p class="metadata-model"></p>
+          <p class="metadata-timestamps"></p>
+          <p class="metadata-tokens"></p>
+        </section>
+        <div class="note-slot"></div>
+        <div class="rating-slot"></div>
+      </article>
+    </template>
+
+    <template id="empty-state-template">
+      <div class="empty-state">
+        <span>Nothing saved yet</span>
+        Your prompts will show up here.
+      </div>
+    </template>
   </body>
 </html>

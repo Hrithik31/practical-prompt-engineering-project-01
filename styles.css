@@ -327,6 +327,56 @@ textarea:focus {
   -webkit-line-clamp: 2;
 }
 
+.prompt-metadata {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 12px;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #141b26;
+}
+
+.prompt-metadata p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.metadata-model {
+  color: #dce5ef;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.metadata-timestamps {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.metadata-tokens {
+  width: fit-content;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.confidence-high {
+  background: rgb(115 224 176 / 12%);
+  color: #73e0b0;
+}
+
+.confidence-medium {
+  background: rgb(243 201 105 / 12%);
+  color: #f3c969;
+}
+
+.confidence-low {
+  background: rgb(255 146 146 / 12%);
+  color: #ff9292;
+}
+
 .note-section {
   display: grid;
   gap: 7px;

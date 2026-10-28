@@ -1,21 +1,130 @@
 const STORAGE_KEY = "prompt-library-prompts";
 const form = document.querySelector("#prompt-form");
 const titleInput = document.querySelector("#prompt-title");
+const modelInput = document.querySelector("#model-name");
 const contentInput = document.querySelector("#prompt-content");
 const promptList = document.querySelector("#prompt-list");
 const promptCount = document.querySelector("#prompt-count");
 const formMessage = document.querySelector("#form-message");
+const promptCardTemplate = document.querySelector("#prompt-card-template");
+const emptyStateTemplate = document.querySelector("#empty-state-template");
 const ratingTemplate = document.querySelector("#rating-template");
 const noteTemplate = document.querySelector("#note-template");
 const noteStatusTimers = new WeakMap();
 
 let prompts = [];
+let migratedPromptMetadata = false;
+
+function isIsoTimestamp(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
+}
+
+function estimateTokens(text, isCode) {
+  if (typeof text !== "string") {
+    throw new TypeError("Text must be a string.");
+  }
+  if (typeof isCode !== "boolean") {
+    throw new TypeError("isCode must be a boolean.");
+  }
+
+  const trimmedText = text.trim();
+  const wordCount = trimmedText ? trimmedText.split(/\s+/).length : 0;
+  const multiplier = isCode ? 1.3 : 1;
+  const min = wordCount * 0.75 * multiplier;
+  const max = text.length * 0.25 * multiplier;
+  const confidence = max < 1000 ? "high" : max <= 5000 ? "medium" : "low";
+
+  return { min, max, confidence };
+}
+
+function trackModel(modelName, content) {
+  if (typeof modelName !== "string" || !modelName.trim()) {
+    throw new TypeError("Model name must be a non-empty string.");
+  }
+  if (modelName.length > 100) {
+    throw new RangeError("Model name must be 100 characters or fewer.");
+  }
+  if (typeof content !== "string") {
+    throw new TypeError("Prompt content must be a string.");
+  }
+
+  const timestamp = new Date().toISOString();
+  return {
+    model: modelName,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    tokenEstimate: estimateTokens(content, false)
+  };
+}
+
+function updateTimestamps(metadata) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    throw new TypeError("Metadata must be an object.");
+  }
+  if (typeof metadata.model !== "string" || !metadata.model.trim() || metadata.model.length > 100) {
+    throw new TypeError("Metadata model must be a non-empty string of 100 characters or fewer.");
+  }
+  if (!isIsoTimestamp(metadata.createdAt)) {
+    throw new TypeError("Metadata createdAt must be a valid ISO 8601 timestamp.");
+  }
+  if (!isIsoTimestamp(metadata.updatedAt)) {
+    throw new TypeError("Metadata updatedAt must be a valid ISO 8601 timestamp.");
+  }
+  if (Date.parse(metadata.updatedAt) < Date.parse(metadata.createdAt)) {
+    throw new RangeError("Metadata updatedAt must be greater than or equal to createdAt.");
+  }
+
+  const estimate = metadata.tokenEstimate;
+  if (
+    !estimate ||
+    typeof estimate !== "object" ||
+    !Number.isFinite(estimate.min) ||
+    !Number.isFinite(estimate.max) ||
+    estimate.min < 0 ||
+    estimate.max < estimate.min ||
+    !["high", "medium", "low"].includes(estimate.confidence)
+  ) {
+    throw new TypeError("Metadata tokenEstimate must contain valid min, max, and confidence values.");
+  }
+
+  const updatedAt = new Date().toISOString();
+  return {
+    model: metadata.model,
+    createdAt: metadata.createdAt,
+    updatedAt: Date.parse(updatedAt) >= Date.parse(metadata.createdAt)
+      ? updatedAt
+      : metadata.createdAt,
+    tokenEstimate: {
+      min: estimate.min,
+      max: estimate.max,
+      confidence: estimate.confidence
+    }
+  };
+}
+
+function updateMetadataDisplay(section, metadata) {
+  section.querySelector(".metadata-model").textContent = metadata.model;
+  section.querySelector(".metadata-timestamps").textContent =
+    `Created ${new Date(metadata.createdAt).toLocaleString()} · Updated ${new Date(metadata.updatedAt).toLocaleString()}`;
+
+  const tokenEstimate = section.querySelector(".metadata-tokens");
+  const confidence = metadata.tokenEstimate.confidence;
+  tokenEstimate.className = `metadata-tokens confidence-${confidence}`;
+  tokenEstimate.textContent =
+    `${Math.round(metadata.tokenEstimate.min)}–${Math.round(metadata.tokenEstimate.max)} tokens · ${confidence} confidence`;
+}
 
 function setMessage(message) {
   formMessage.textContent = message;
 }
 
 function loadPrompts() {
+  migratedPromptMetadata = false;
   const savedPrompts = localStorage.getItem(STORAGE_KEY);
   if (!savedPrompts) {
     return [];
@@ -25,10 +134,22 @@ function loadPrompts() {
   if (!Array.isArray(parsedPrompts)) {
     throw new Error("Saved prompt data is not a list.");
   }
-  return parsedPrompts.map((prompt) => ({
-    ...prompt,
-    note: typeof prompt.note === "string" ? prompt.note : ""
-  }));
+  return parsedPrompts.map((prompt) => {
+    const normalizedPrompt = {
+      ...prompt,
+      note: typeof prompt.note === "string" ? prompt.note : ""
+    };
+    if (!normalizedPrompt.metadata) {
+      migratedPromptMetadata = true;
+      normalizedPrompt.metadata = trackModel(
+        typeof normalizedPrompt.model === "string" ? normalizedPrompt.model : "Unspecified",
+        normalizedPrompt.content
+      );
+    } else {
+      updateTimestamps(normalizedPrompt.metadata);
+    }
+    return normalizedPrompt;
+  });
 }
 
 function savePrompts(nextPrompts) {
@@ -98,55 +219,26 @@ function createRatingControl(prompt) {
 }
 
 function createPromptCard(prompt) {
-  const card = document.createElement("article");
-  card.className = "prompt-card";
-
-  const topline = document.createElement("div");
-  topline.className = "card-topline";
-
-  const title = document.createElement("h3");
-  title.className = "card-title";
+  const card = promptCardTemplate.content.firstElementChild.cloneNode(true);
+  const title = card.querySelector(".card-title");
   title.textContent = prompt.title;
 
-  const tag = document.createElement("span");
-  tag.className = "card-tag";
-  tag.textContent = "PROMPT";
-
-  const cardActions = document.createElement("div");
-  cardActions.className = "card-actions";
-
-  const deleteButton = document.createElement("button");
-  deleteButton.className = "delete-button";
-  deleteButton.type = "button";
+  const deleteButton = card.querySelector(".delete-button");
   deleteButton.setAttribute("aria-label", `Delete ${prompt.title}`);
   deleteButton.title = `Delete ${prompt.title}`;
   deleteButton.addEventListener("click", () => deletePrompt(prompt.id));
 
-  const deleteIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  deleteIcon.setAttribute("viewBox", "0 0 24 24");
-  deleteIcon.setAttribute("width", "17");
-  deleteIcon.setAttribute("height", "17");
-  deleteIcon.setAttribute("fill", "none");
-  deleteIcon.setAttribute("stroke", "currentColor");
-  deleteIcon.setAttribute("stroke-width", "1.8");
-  deleteIcon.setAttribute("stroke-linecap", "round");
-  deleteIcon.setAttribute("stroke-linejoin", "round");
-  deleteIcon.setAttribute("aria-hidden", "true");
-  deleteIcon.setAttribute("focusable", "false");
-
-  const deleteIconPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  deleteIconPath.setAttribute("d", "M3 6h18M8 6V4h8v2m-7 4v7m6-7v7M5 6l1 14h12l1-14");
-  deleteIcon.append(deleteIconPath);
-  deleteButton.append(deleteIcon);
-
-  const preview = document.createElement("p");
-  preview.className = "card-preview";
+  const preview = card.querySelector(".card-preview");
   const words = prompt.content.trim().split(/\s+/);
   preview.textContent = words.length > 18
     ? `${words.slice(0, 18).join(" ")}...`
     : prompt.content;
 
+  const metadata = card.querySelector(".prompt-metadata");
+  updateMetadataDisplay(metadata, prompt.metadata);
+
   const notes = noteTemplate.content.firstElementChild.cloneNode(true);
+  card.querySelector(".note-slot").replaceChildren(notes);
   const noteLabel = notes.querySelector(".note-label");
   const noteDisplay = notes.querySelector(".note-display");
   const noteInput = notes.querySelector(".note-input");
@@ -177,10 +269,7 @@ function createPromptCard(prompt) {
   ));
 
   const ratingControl = createRatingControl(prompt);
-
-  cardActions.append(tag, deleteButton);
-  topline.append(title, cardActions);
-  card.append(topline, preview, notes, ratingControl);
+  card.querySelector(".rating-slot").replaceChildren(ratingControl);
   return card;
 }
 
@@ -189,17 +278,14 @@ function renderPrompts() {
   promptCount.textContent = String(prompts.length);
 
   if (prompts.length === 0) {
-    const emptyState = document.createElement("div");
-    emptyState.className = "empty-state";
-
-    const heading = document.createElement("span");
-    heading.textContent = "Nothing saved yet";
-    emptyState.append(heading, document.createTextNode("Your prompts will show up here."));
-    promptList.append(emptyState);
+    promptList.append(emptyStateTemplate.content.firstElementChild.cloneNode(true));
     return;
   }
 
-  prompts.forEach((prompt) => promptList.append(createPromptCard(prompt)));
+  prompts
+    .slice()
+    .sort((left, right) => Date.parse(right.metadata.createdAt) - Date.parse(left.metadata.createdAt))
+    .forEach((prompt) => promptList.append(createPromptCard(prompt)));
 }
 
 function deletePrompt(id) {
@@ -249,11 +335,21 @@ function saveNote(id, notes, noteDisplay, noteInput, noteStatus) {
   }
 
   const note = noteInput.value.trim();
-  const updatedPrompt = { ...prompt, note };
+  let updatedPrompt;
+  try {
+    updatedPrompt = { ...prompt, note, metadata: updateTimestamps(prompt.metadata) };
+  } catch {
+    showNoteStatus(noteStatus, "Could not update prompt metadata. Refresh the page and try again.");
+    return;
+  }
   const nextPrompts = prompts.map((item) => item.id === id ? updatedPrompt : item);
   try {
     savePrompts(nextPrompts);
     prompts = nextPrompts;
+    updateMetadataDisplay(
+      notes.closest(".prompt-card").querySelector(".prompt-metadata"),
+      updatedPrompt.metadata
+    );
     noteDisplay.textContent = note;
     setNoteState(notes, "saved");
     showNoteStatus(noteStatus, "Note saved.", 3000);
@@ -270,12 +366,22 @@ function deleteNote(id, notes, noteDisplay, noteInput, noteStatus) {
     return;
   }
 
-  const updatedPrompt = { ...prompt };
-  delete updatedPrompt.note;
+  let updatedPrompt;
+  try {
+    updatedPrompt = { ...prompt, metadata: updateTimestamps(prompt.metadata) };
+    delete updatedPrompt.note;
+  } catch {
+    showNoteStatus(noteStatus, "Could not update prompt metadata. Refresh the page and try again.");
+    return;
+  }
   const nextPrompts = prompts.map((item) => item.id === id ? updatedPrompt : item);
   try {
     savePrompts(nextPrompts);
     prompts = nextPrompts;
+    updateMetadataDisplay(
+      notes.closest(".prompt-card").querySelector(".prompt-metadata"),
+      updatedPrompt.metadata
+    );
     noteInput.value = "";
     noteDisplay.textContent = "";
     setNoteState(notes, "editing");
@@ -293,22 +399,25 @@ function ratePrompt(id, rating, ratingControl) {
     return;
   }
 
-  const nextPrompts = prompts.map((prompt) => {
-    if (prompt.id !== id) {
-      return prompt;
-    }
-    const updatedPrompt = { ...prompt };
-    if (rating === 0) {
-      delete updatedPrompt.rating;
-    } else {
-      updatedPrompt.rating = rating;
-    }
-    return updatedPrompt;
-  });
-
   try {
+    const nextPrompts = prompts.map((item) => {
+      if (item.id !== id) {
+        return item;
+      }
+      const updatedPrompt = { ...item, metadata: updateTimestamps(item.metadata) };
+      if (rating === 0) {
+        delete updatedPrompt.rating;
+      } else {
+        updatedPrompt.rating = rating;
+      }
+      return updatedPrompt;
+    });
     savePrompts(nextPrompts);
     prompts = nextPrompts;
+    updateMetadataDisplay(
+      ratingControl.closest(".prompt-card").querySelector(".prompt-metadata"),
+      prompts.find((item) => item.id === id).metadata
+    );
     if (rating === 0) {
       delete prompt.rating;
     } else {
@@ -337,18 +446,24 @@ form.addEventListener("submit", (event) => {
   setMessage("");
 
   const title = titleInput.value.trim();
+  const modelName = modelInput.value.trim();
   const content = contentInput.value.trim();
-  if (!title || !content) {
-    setMessage("Add both a title and prompt content.");
+  if (!title || !modelName || !content) {
+    setMessage("Add a title, model name, and prompt content.");
     return;
   }
 
-  const nextPrompts = [
-    { id: crypto.randomUUID(), title, content, note: "" },
-    ...prompts
-  ];
-
   try {
+    const nextPrompts = [
+      {
+        id: crypto.randomUUID(),
+        title,
+        content,
+        note: "",
+        metadata: trackModel(modelName, content)
+      },
+      ...prompts
+    ];
     savePrompts(nextPrompts);
     prompts = nextPrompts;
     renderPrompts();
@@ -362,6 +477,13 @@ form.addEventListener("submit", (event) => {
 try {
   prompts = loadPrompts();
   renderPrompts();
+  if (migratedPromptMetadata) {
+    try {
+      savePrompts(prompts);
+    } catch {
+      setMessage("Prompts loaded, but metadata migration could not be saved to browser storage.");
+    }
+  }
 } catch {
   setMessage("Could not load saved prompts. Browser storage may be unavailable or corrupted.");
   renderPrompts();
