@@ -327,6 +327,96 @@ textarea:focus {
   -webkit-line-clamp: 2;
 }
 
+.note-section {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.note-label {
+  margin: 0;
+  color: #c6cfdb;
+  font-size: 12px;
+}
+
+.note-input {
+  min-height: 64px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.note-display {
+  min-height: 38px;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.note-actions {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 10px;
+}
+
+.note-actions [hidden] {
+  display: none;
+}
+
+.note-status {
+  flex: 1;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.note-save-button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.note-delete-button {
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: #9ba6b7;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.note-edit-button {
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: #9ba6b7;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.note-edit-button:hover {
+  color: #e8edf5;
+}
+
+.note-edit-button:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.note-delete-button:hover {
+  color: #ff9292;
+}
+
+.note-delete-button:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .rating-control {
   display: flex;
   flex-wrap: wrap;

@@ -6,6 +6,8 @@ const promptList = document.querySelector("#prompt-list");
 const promptCount = document.querySelector("#prompt-count");
 const formMessage = document.querySelector("#form-message");
 const ratingTemplate = document.querySelector("#rating-template");
+const noteTemplate = document.querySelector("#note-template");
+const noteStatusTimers = new WeakMap();
 
 let prompts = [];
 
@@ -23,7 +25,10 @@ function loadPrompts() {
   if (!Array.isArray(parsedPrompts)) {
     throw new Error("Saved prompt data is not a list.");
   }
-  return parsedPrompts;
+  return parsedPrompts.map((prompt) => ({
+    ...prompt,
+    note: typeof prompt.note === "string" ? prompt.note : ""
+  }));
 }
 
 function savePrompts(nextPrompts) {
@@ -141,11 +146,41 @@ function createPromptCard(prompt) {
     ? `${words.slice(0, 18).join(" ")}...`
     : prompt.content;
 
+  const notes = noteTemplate.content.firstElementChild.cloneNode(true);
+  const noteLabel = notes.querySelector(".note-label");
+  const noteDisplay = notes.querySelector(".note-display");
+  const noteInput = notes.querySelector(".note-input");
+  const noteStatus = notes.querySelector(".note-status");
+  const saveNoteButton = notes.querySelector(".note-save-button");
+  const editNoteButton = notes.querySelector(".note-edit-button");
+  const deleteNoteButton = notes.querySelector(".note-delete-button");
+
+  noteInput.value = typeof prompt.note === "string" ? prompt.note : "";
+  noteDisplay.textContent = noteInput.value;
+  noteInput.setAttribute("aria-label", `Note for ${prompt.title}`);
+  noteLabel.htmlFor = `note-${prompt.id}`;
+  noteInput.id = `note-${prompt.id}`;
+  setNoteState(notes, noteInput.value ? "saved" : "new");
+  saveNoteButton.setAttribute("aria-label", `Save note for ${prompt.title}`);
+  saveNoteButton.addEventListener("click", () => saveNote(
+    prompt.id, notes, noteDisplay, noteInput, noteStatus
+  ));
+
+  editNoteButton.setAttribute("aria-label", `Edit note for ${prompt.title}`);
+  editNoteButton.addEventListener("click", () => {
+    setNoteState(notes, "editing");
+    noteInput.focus();
+  });
+  deleteNoteButton.setAttribute("aria-label", `Delete note for ${prompt.title}`);
+  deleteNoteButton.addEventListener("click", () => deleteNote(
+    prompt.id, notes, noteDisplay, noteInput, noteStatus
+  ));
+
   const ratingControl = createRatingControl(prompt);
 
   cardActions.append(tag, deleteButton);
   topline.append(title, cardActions);
-  card.append(topline, preview, ratingControl);
+  card.append(topline, preview, notes, ratingControl);
   return card;
 }
 
@@ -176,6 +211,78 @@ function deletePrompt(id) {
     setMessage("");
   } catch {
     setMessage("Could not delete the prompt. Please try again.");
+  }
+}
+
+function setNoteState(notes, state) {
+  const isSaved = state === "saved";
+  const isNew = state === "new";
+  notes.querySelector(".note-display").hidden = !isSaved;
+  notes.querySelector(".note-input").hidden = isSaved;
+  notes.querySelector(".note-save-button").hidden = isSaved;
+  notes.querySelector(".note-edit-button").hidden = !isSaved;
+  notes.querySelector(".note-delete-button").hidden = isNew;
+}
+
+function showNoteStatus(noteStatus, message, clearAfter = 0) {
+  const existingTimer = noteStatusTimers.get(noteStatus);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    noteStatusTimers.delete(noteStatus);
+  }
+
+  noteStatus.textContent = message;
+  if (clearAfter > 0) {
+    const timer = setTimeout(() => {
+      noteStatus.textContent = "";
+      noteStatusTimers.delete(noteStatus);
+    }, clearAfter);
+    noteStatusTimers.set(noteStatus, timer);
+  }
+}
+
+function saveNote(id, notes, noteDisplay, noteInput, noteStatus) {
+  const prompt = prompts.find((item) => item.id === id);
+  if (!prompt) {
+    showNoteStatus(noteStatus, "Could not find that prompt. Refresh the page and try again.");
+    return;
+  }
+
+  const note = noteInput.value.trim();
+  const updatedPrompt = { ...prompt, note };
+  const nextPrompts = prompts.map((item) => item.id === id ? updatedPrompt : item);
+  try {
+    savePrompts(nextPrompts);
+    prompts = nextPrompts;
+    noteDisplay.textContent = note;
+    setNoteState(notes, "saved");
+    showNoteStatus(noteStatus, "Note saved.", 3000);
+    setMessage("");
+  } catch {
+    showNoteStatus(noteStatus, "Could not save the note. Check browser storage and try again.");
+  }
+}
+
+function deleteNote(id, notes, noteDisplay, noteInput, noteStatus) {
+  const prompt = prompts.find((item) => item.id === id);
+  if (!prompt) {
+    showNoteStatus(noteStatus, "Could not find that prompt. Refresh the page and try again.");
+    return;
+  }
+
+  const updatedPrompt = { ...prompt };
+  delete updatedPrompt.note;
+  const nextPrompts = prompts.map((item) => item.id === id ? updatedPrompt : item);
+  try {
+    savePrompts(nextPrompts);
+    prompts = nextPrompts;
+    noteInput.value = "";
+    noteDisplay.textContent = "";
+    setNoteState(notes, "editing");
+    showNoteStatus(noteStatus, "Note deleted.");
+    setMessage("");
+  } catch {
+    showNoteStatus(noteStatus, "Could not delete the note. Check browser storage and try again.");
   }
 }
 
@@ -237,7 +344,7 @@ form.addEventListener("submit", (event) => {
   }
 
   const nextPrompts = [
-    { id: crypto.randomUUID(), title, content },
+    { id: crypto.randomUUID(), title, content, note: "" },
     ...prompts
   ];
 

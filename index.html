@@ -66,6 +66,20 @@
         <div id="prompt-list" class="prompt-grid" aria-live="polite"></div>
       </section>
 
+      <template id="note-template">
+        <div class="note-section">
+          <label class="note-label">Note</label>
+          <div class="note-display" hidden></div>
+          <textarea class="note-input" rows="3"></textarea>
+          <div class="note-actions">
+            <span class="note-status" role="status" aria-live="polite"></span>
+            <button class="button button-primary note-save-button" type="button">Save note</button>
+            <button class="note-edit-button" type="button" hidden>Edit note</button>
+            <button class="note-delete-button" type="button" hidden>Delete note</button>
+          </div>
+        </div>
+      </template>
+
       <template id="rating-template">
         <fieldset class="rating-control">
           <legend>Rate effectiveness</legend>
