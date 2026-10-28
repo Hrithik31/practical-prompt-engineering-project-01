@@ -19,3 +19,33 @@ The browser script exposes these plain JavaScript functions:
 
 Metadata is shown on each prompt card, and cards are ordered by creation time,
 newest first.
+
+## Import and export
+
+Use **Export JSON** to download every saved prompt, including its note, rating,
+and complete metadata. The version 1 document has this shape:
+
+```json
+{
+  "format": "prompt-library-export",
+  "version": 1,
+  "exportedAt": "2026-10-28T12:00:00.000Z",
+  "statistics": {
+    "totalPrompts": 0,
+    "averageRating": null,
+    "mostUsedModel": null
+  },
+  "prompts": []
+}
+```
+
+Average rating is calculated across rated prompts only. The most-used model is
+the model with the most prompts; ties are resolved alphabetically. Empty
+collections use `null` for both statistics.
+
+Use **Import JSON** to validate a version 1 export before choosing merge or
+replace. Merge adds new IDs and asks whether to keep or replace each matching
+prompt. Replace discards the current collection after confirmation in the
+import dialog. Before either operation, the prior raw prompt data is saved under
+the `prompt-library-import-backup` localStorage key; failed writes are rolled
+back automatically when browser storage permits.

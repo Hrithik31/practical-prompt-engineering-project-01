@@ -72,9 +72,37 @@
             <p class="section-label">YOUR COLLECTION</p>
             <h2 id="library-title">Saved prompts <span id="prompt-count" class="count-badge">0</span></h2>
           </div>
+          <div class="data-actions" aria-label="Prompt data actions">
+            <button id="export-prompts" class="button button-secondary" type="button">Export JSON</button>
+            <button id="import-prompts" class="button button-secondary" type="button">Import JSON</button>
+            <input id="import-file" type="file" accept=".json,application/json" hidden>
+          </div>
         </div>
         <div id="prompt-list" class="prompt-grid" aria-live="polite"></div>
       </section>
+
+      <dialog id="import-dialog" class="import-dialog" aria-labelledby="import-dialog-title">
+        <div class="dialog-content">
+          <p class="section-label">IMPORT PROMPTS</p>
+          <h2 id="import-dialog-title">Choose how to import</h2>
+          <p id="import-summary" class="dialog-summary"></p>
+          <label for="import-mode">Import mode</label>
+          <select id="import-mode">
+            <option value="merge">Merge with saved prompts</option>
+            <option value="replace">Replace all saved prompts</option>
+          </select>
+          <section id="import-conflicts" class="import-conflicts" aria-labelledby="conflicts-title" hidden>
+            <h3 id="conflicts-title">Matching prompt IDs</h3>
+            <p>Choose which version to keep for each matching ID.</p>
+            <div id="conflict-list"></div>
+          </section>
+          <p id="replace-warning" class="replace-warning" hidden>All prompts currently saved in this browser will be replaced.</p>
+          <div class="dialog-actions">
+            <button id="cancel-import" class="button button-secondary" type="button">Cancel</button>
+            <button id="apply-import" class="button button-primary" type="button">Import prompts</button>
+          </div>
+        </div>
+      </dialog>
 
       <template id="note-template">
         <div class="note-section">

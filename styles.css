@@ -30,7 +30,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -176,7 +177,8 @@ textarea::placeholder {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: #5abf93;
   box-shadow: 0 0 0 3px rgb(115 224 176 / 10%);
 }
@@ -194,6 +196,10 @@ textarea:focus {
   margin: 0;
   color: #ff9a9a;
   font-size: 12px;
+}
+
+.form-message.is-success {
+  color: var(--accent);
 }
 
 .button {
@@ -233,12 +239,129 @@ textarea:focus {
   line-height: 1;
 }
 
+.button-secondary {
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: #d7e0eb;
+}
+
+.button-secondary:hover {
+  border-color: #526457;
+  background: #222e3b;
+}
+
+.button-secondary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .library {
   margin-top: 43px;
 }
 
 .library-heading {
   margin-bottom: 18px;
+}
+
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.import-dialog {
+  width: min(100% - 32px, 560px);
+  max-height: min(85vh, 760px);
+  overflow: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: #e8edf5;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 48%);
+}
+
+.import-dialog::backdrop {
+  background: rgb(5 9 14 / 76%);
+  backdrop-filter: blur(3px);
+}
+
+.dialog-content {
+  display: grid;
+  gap: 12px;
+  padding: 25px;
+}
+
+.dialog-content .section-label,
+.dialog-content h2,
+.dialog-summary,
+.import-conflicts h3,
+.import-conflicts p {
+  margin-bottom: 0;
+}
+
+.dialog-content label {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.dialog-content select {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #111823;
+  color: #e8edf5;
+}
+
+.dialog-summary,
+.import-conflicts p,
+.replace-warning {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.import-conflicts {
+  display: grid;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.import-conflicts h3 {
+  font-size: 14px;
+}
+
+.conflict-row {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.conflict-row label {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 200px);
+  align-items: center;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+
+.conflict-row select {
+  width: 100%;
+}
+
+.replace-warning {
+  margin: 0;
+  color: #ffb0a7;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 8px;
 }
 
 .library-heading h2 {
@@ -430,39 +553,49 @@ textarea:focus {
 }
 
 .note-delete-button {
-  padding: 5px 0;
-  border: 0;
-  background: transparent;
-  color: #9ba6b7;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgb(255 146 146 / 24%);
+  border-radius: 6px;
+  background: rgb(255 146 146 / 7%);
+  color: #ff9292;
   cursor: pointer;
   font-size: 11px;
+  font-weight: 600;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .note-edit-button {
-  padding: 5px 0;
-  border: 0;
-  background: transparent;
-  color: #9ba6b7;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: #d7e0eb;
   cursor: pointer;
   font-size: 11px;
+  font-weight: 600;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .note-edit-button:hover {
+  border-color: #526457;
+  background: #222e3b;
   color: #e8edf5;
 }
 
 .note-edit-button:focus-visible {
-  border-radius: 2px;
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
 .note-delete-button:hover {
+  border-color: rgb(255 146 146 / 48%);
+  background: rgb(255 146 146 / 14%);
   color: #ff9292;
 }
 
 .note-delete-button:focus-visible {
-  border-radius: 2px;
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
@@ -629,8 +762,27 @@ textarea:focus {
     align-items: flex-end;
   }
 
+  .library-heading {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .data-actions {
+    flex-direction: column;
+    flex: 0 0 auto;
+  }
+
   .button-primary {
     flex: 0 0 auto;
+  }
+
+  .dialog-content {
+    padding: 20px 17px;
+  }
+
+  .conflict-row label {
+    grid-template-columns: 1fr;
+    gap: 7px;
   }
 }
 

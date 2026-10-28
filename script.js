@@ -1,4 +1,7 @@
 const STORAGE_KEY = "prompt-library-prompts";
+const IMPORT_BACKUP_KEY = "prompt-library-import-backup";
+const EXPORT_FORMAT = "prompt-library-export";
+const EXPORT_VERSION = 1;
 const form = document.querySelector("#prompt-form");
 const titleInput = document.querySelector("#prompt-title");
 const modelInput = document.querySelector("#model-name");
@@ -10,10 +13,21 @@ const promptCardTemplate = document.querySelector("#prompt-card-template");
 const emptyStateTemplate = document.querySelector("#empty-state-template");
 const ratingTemplate = document.querySelector("#rating-template");
 const noteTemplate = document.querySelector("#note-template");
+const exportButton = document.querySelector("#export-prompts");
+const importButton = document.querySelector("#import-prompts");
+const importFileInput = document.querySelector("#import-file");
+const importDialog = document.querySelector("#import-dialog");
+const importMode = document.querySelector("#import-mode");
+const importSummary = document.querySelector("#import-summary");
+const importConflicts = document.querySelector("#import-conflicts");
+const conflictList = document.querySelector("#conflict-list");
+const replaceWarning = document.querySelector("#replace-warning");
+const applyImportButton = document.querySelector("#apply-import");
 const noteStatusTimers = new WeakMap();
 
 let prompts = [];
 let migratedPromptMetadata = false;
+let pendingImportPrompts = null;
 
 function isIsoTimestamp(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
@@ -121,6 +135,7 @@ function updateMetadataDisplay(section, metadata) {
 
 function setMessage(message) {
   formMessage.textContent = message;
+  formMessage.classList.toggle("is-success", Boolean(message) && (message.startsWith("Exported ") || message.startsWith("Imported ")));
 }
 
 function loadPrompts() {
@@ -155,6 +170,317 @@ function loadPrompts() {
 function savePrompts(nextPrompts) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(nextPrompts));
 }
+
+function validatePrompt(prompt, index) {
+  const label = `Prompt ${index + 1}`;
+  if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) {
+    throw new Error(`${label} must be an object.`);
+  }
+  if (typeof prompt.id !== "string" || !prompt.id.trim()) {
+    throw new Error(`${label} is missing a valid ID.`);
+  }
+  if (typeof prompt.title !== "string" || !prompt.title.trim()) {
+    throw new Error(`${label} must have a title.`);
+  }
+  if (typeof prompt.content !== "string" || !prompt.content.trim()) {
+    throw new Error(`${label} must have prompt content.`);
+  }
+  if (prompt.note !== undefined && typeof prompt.note !== "string") {
+    throw new Error(`${label} note must be text.`);
+  }
+  if (prompt.rating !== undefined && (!Number.isInteger(prompt.rating) || prompt.rating < 1 || prompt.rating > 5)) {
+    throw new Error(`${label} rating must be an integer from 1 to 5.`);
+  }
+
+  const metadata = prompt.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    throw new Error(`${label} is missing metadata.`);
+  }
+  if (typeof metadata.model !== "string" || !metadata.model.trim() || metadata.model.length > 100) {
+    throw new Error(`${label} metadata model must be 1 to 100 characters.`);
+  }
+  if (!isIsoTimestamp(metadata.createdAt) || !isIsoTimestamp(metadata.updatedAt)) {
+    throw new Error(`${label} metadata timestamps must be valid ISO 8601 values.`);
+  }
+  if (Date.parse(metadata.updatedAt) < Date.parse(metadata.createdAt)) {
+    throw new Error(`${label} metadata updatedAt cannot precede createdAt.`);
+  }
+
+  const estimate = metadata.tokenEstimate;
+  if (
+    !estimate ||
+    typeof estimate !== "object" ||
+    !Number.isFinite(estimate.min) ||
+    !Number.isFinite(estimate.max) ||
+    estimate.min < 0 ||
+    estimate.max < estimate.min ||
+    !["high", "medium", "low"].includes(estimate.confidence)
+  ) {
+    throw new Error(`${label} metadata token estimate is invalid.`);
+  }
+
+  return {
+    ...prompt,
+    note: typeof prompt.note === "string" ? prompt.note : "",
+    metadata: {
+      ...metadata,
+      tokenEstimate: { ...estimate }
+    }
+  };
+}
+
+function validatePromptList(promptList) {
+  if (!Array.isArray(promptList)) {
+    throw new Error("The prompts value must be an array.");
+  }
+
+  const ids = new Set();
+  return promptList.map((prompt, index) => {
+    const validatedPrompt = validatePrompt(prompt, index);
+    if (ids.has(validatedPrompt.id)) {
+      throw new Error(`Duplicate prompt ID found: ${validatedPrompt.id}`);
+    }
+    ids.add(validatedPrompt.id);
+    return validatedPrompt;
+  });
+}
+
+function calculateStatistics(promptList) {
+  const ratedPrompts = promptList.filter((prompt) => getPromptRating(prompt) > 0);
+  const modelCounts = new Map();
+  promptList.forEach((prompt) => {
+    const model = prompt.metadata.model;
+    modelCounts.set(model, (modelCounts.get(model) || 0) + 1);
+  });
+
+  const mostUsedModel = [...modelCounts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0];
+  const averageRating = ratedPrompts.length
+    ? Number((ratedPrompts.reduce((total, prompt) => total + prompt.rating, 0) / ratedPrompts.length).toFixed(2))
+    : null;
+
+  return {
+    totalPrompts: promptList.length,
+    averageRating,
+    mostUsedModel: mostUsedModel ? mostUsedModel[0] : null
+  };
+}
+
+function readPromptsForExport() {
+  const rawPrompts = localStorage.getItem(STORAGE_KEY);
+  if (rawPrompts === null) {
+    return [];
+  }
+  const parsedPrompts = JSON.parse(rawPrompts);
+  if (!Array.isArray(parsedPrompts)) {
+    throw new Error("Saved prompt data is not a list.");
+  }
+
+  const normalizedPrompts = loadPrompts();
+  return validatePromptList(normalizedPrompts);
+}
+
+function exportPrompts() {
+  try {
+    const promptsToExport = readPromptsForExport();
+    const exportData = {
+      format: EXPORT_FORMAT,
+      version: EXPORT_VERSION,
+      exportedAt: new Date().toISOString(),
+      statistics: calculateStatistics(promptsToExport),
+      prompts: promptsToExport
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+    const timestamp = exportData.exportedAt.replace(/[:.]/g, "-");
+    downloadLink.href = downloadUrl;
+    downloadLink.download = `prompt-library-${timestamp}.json`;
+    document.body.append(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    setMessage(`Exported ${promptsToExport.length} prompt${promptsToExport.length === 1 ? "" : "s"}.`);
+  } catch (error) {
+    setMessage(`Export failed: ${error.message || "browser storage could not be read."}`);
+  }
+}
+
+function validateImportDocument(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("The file must contain a JSON object.");
+  }
+  if (data.format !== EXPORT_FORMAT) {
+    throw new Error("This is not a Prompt Library export file.");
+  }
+  if (data.version !== EXPORT_VERSION) {
+    throw new Error(`Unsupported export version: ${String(data.version)}.`);
+  }
+  if (!isIsoTimestamp(data.exportedAt)) {
+    throw new Error("The export timestamp is missing or invalid.");
+  }
+  const statistics = data.statistics;
+  if (
+    !statistics ||
+    typeof statistics !== "object" ||
+    !Number.isInteger(statistics.totalPrompts) ||
+    statistics.totalPrompts < 0 ||
+    !(statistics.averageRating === null || (
+      typeof statistics.averageRating === "number" &&
+      Number.isFinite(statistics.averageRating) &&
+      statistics.averageRating >= 1 &&
+      statistics.averageRating <= 5
+    )) ||
+    !(statistics.mostUsedModel === null || typeof statistics.mostUsedModel === "string")
+  ) {
+    throw new Error("The export statistics are invalid.");
+  }
+  const validatedPrompts = validatePromptList(data.prompts);
+  const expectedStatistics = calculateStatistics(validatedPrompts);
+  if (
+    statistics.totalPrompts !== expectedStatistics.totalPrompts ||
+    statistics.averageRating !== expectedStatistics.averageRating ||
+    statistics.mostUsedModel !== expectedStatistics.mostUsedModel
+  ) {
+    throw new Error("The export statistics do not match the prompt data.");
+  }
+  return validatedPrompts;
+}
+
+function renderImportConflicts(incomingPrompts) {
+  const existingIds = new Set(prompts.map((prompt) => prompt.id));
+  const conflicts = incomingPrompts.filter((prompt) => existingIds.has(prompt.id));
+  conflictList.replaceChildren();
+  conflicts.forEach((prompt) => {
+    const row = document.createElement("div");
+    row.className = "conflict-row";
+    const label = document.createElement("label");
+    const choice = document.createElement("select");
+    choice.dataset.promptId = prompt.id;
+    const keepOption = document.createElement("option");
+    keepOption.value = "keep";
+    keepOption.textContent = "Keep saved version";
+    const importOption = document.createElement("option");
+    importOption.value = "import";
+    importOption.textContent = "Use imported version";
+    choice.append(keepOption, importOption);
+    label.textContent = prompt.title;
+    label.append(choice);
+    row.append(label);
+    conflictList.append(row);
+  });
+  importConflicts.hidden = conflicts.length === 0;
+  return conflicts.length;
+}
+
+function updateImportMode() {
+  const replacing = importMode.value === "replace";
+  importConflicts.hidden = replacing || conflictList.childElementCount === 0;
+  replaceWarning.hidden = !replacing;
+  applyImportButton.textContent = replacing ? "Replace prompts" : "Merge prompts";
+}
+
+function openImportDialog(incomingPrompts) {
+  pendingImportPrompts = incomingPrompts;
+  const conflictCount = renderImportConflicts(incomingPrompts);
+  importMode.value = "merge";
+  importSummary.textContent = `${incomingPrompts.length} prompt${incomingPrompts.length === 1 ? "" : "s"} found; ${conflictCount} matching ID${conflictCount === 1 ? "" : "s"} in this library.`;
+  updateImportMode();
+  importDialog.showModal();
+}
+
+function applyImport() {
+  if (!pendingImportPrompts) {
+    setMessage("Import failed: no validated file is ready to import.");
+    importDialog.close();
+    return;
+  }
+
+  let previousRaw = null;
+  const previousPrompts = prompts;
+  let backupCreated = false;
+  let promptWriteStarted = false;
+  try {
+    previousRaw = localStorage.getItem(STORAGE_KEY);
+    localStorage.setItem(IMPORT_BACKUP_KEY, JSON.stringify({
+      backedUpAt: new Date().toISOString(),
+      storageKey: STORAGE_KEY,
+      rawValue: previousRaw
+    }));
+    backupCreated = true;
+
+    let nextPrompts;
+    if (importMode.value === "replace") {
+      nextPrompts = pendingImportPrompts;
+    } else {
+      const importedById = new Map(pendingImportPrompts.map((prompt) => [prompt.id, prompt]));
+      const choices = new Map(
+        [...conflictList.querySelectorAll("select")]
+          .map((choice) => [choice.dataset.promptId, choice.value])
+      );
+      nextPrompts = prompts.map((prompt) => {
+        if (!importedById.has(prompt.id) || choices.get(prompt.id) !== "import") {
+          return prompt;
+        }
+        return importedById.get(prompt.id);
+      });
+      const existingIds = new Set(prompts.map((prompt) => prompt.id));
+      nextPrompts.push(...pendingImportPrompts.filter((prompt) => !existingIds.has(prompt.id)));
+    }
+
+    nextPrompts = validatePromptList(nextPrompts);
+    promptWriteStarted = true;
+    savePrompts(nextPrompts);
+    prompts = nextPrompts;
+    renderPrompts();
+    setMessage(`Imported ${pendingImportPrompts.length} prompt${pendingImportPrompts.length === 1 ? "" : "s"} successfully. A pre-import backup is available in browser storage.`);
+    pendingImportPrompts = null;
+    importDialog.close();
+  } catch (error) {
+    let rollbackMessage = "";
+    if (promptWriteStarted) {
+      try {
+        if (previousRaw === null) {
+          localStorage.removeItem(STORAGE_KEY);
+        } else {
+          localStorage.setItem(STORAGE_KEY, previousRaw);
+        }
+        prompts = previousPrompts;
+        renderPrompts();
+      } catch (rollbackError) {
+        rollbackMessage = ` Rollback also failed: ${rollbackError.message || "browser storage is unavailable"}.`;
+      }
+    }
+    const backupMessage = backupCreated
+      ? " The pre-import backup was retained in browser storage."
+      : " The backup could not be created, so no import was applied.";
+    setMessage(`Import failed: ${error.message || "unexpected storage error"}.${backupMessage}${rollbackMessage}`);
+  }
+}
+
+exportButton.addEventListener("click", exportPrompts);
+importButton.addEventListener("click", () => importFileInput.click());
+importMode.addEventListener("change", updateImportMode);
+document.querySelector("#cancel-import").addEventListener("click", () => importDialog.close());
+applyImportButton.addEventListener("click", applyImport);
+importDialog.addEventListener("close", () => {
+  pendingImportPrompts = null;
+});
+
+importFileInput.addEventListener("change", async () => {
+  const file = importFileInput.files[0];
+  importFileInput.value = "";
+  if (!file) {
+    return;
+  }
+
+  try {
+    const data = JSON.parse(await file.text());
+    openImportDialog(validateImportDocument(data));
+  } catch (error) {
+    setMessage(`Import file rejected: ${error.message || "could not read the file."}`);
+  }
+});
 
 function getPromptRating(prompt) {
   return Number.isInteger(prompt.rating) && prompt.rating >= 1 && prompt.rating <= 5
@@ -335,6 +661,11 @@ function saveNote(id, notes, noteDisplay, noteInput, noteStatus) {
   }
 
   const note = noteInput.value.trim();
+  if (!note) {
+    showNoteStatus(noteStatus, "Please enter a note before saving.");
+    return;
+  }
+
   let updatedPrompt;
   try {
     updatedPrompt = { ...prompt, note, metadata: updateTimestamps(prompt.metadata) };
